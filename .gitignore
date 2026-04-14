@@ -1,0 +1,41 @@
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Virtual environments
+.venv/
+.venv-*/
+venv/
+env/
+
+# Local environment and editor files
+.env
+.DS_Store
+
+# Training artifacts
+outputs/
+logs/
+*.log
+*.out
+*.err
+
+# Model/checkpoint artifacts
+*.pt
+*.pth
+*.bin
+*.ckpt
+*.safetensors
+
+# Archives
+*.tar
+*.tar.gz
+*.zip
+
+# Offline packages and large local dependencies
+offline_packages/
+
+# Local datasets
+data/
+
+# Windows metadata files
+*.Zone.Identifier

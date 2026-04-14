@@ -1,0 +1,44 @@
+model:
+  model_root: ~/models/stable-diffusion-v1-5
+  target_modules: ["to_q", "to_k", "to_v", "to_out"]
+
+data:
+  instance_data_dir: data/google_dreambooth/dog/images
+  instance_prompt: "a photo of sks dog"
+  class_data_dir: null
+  class_prompt: null
+  with_prior_preservation: false
+  prior_loss_weight: 1.0
+  resolution: 512
+  center_crop: true
+  num_workers: 8
+  train_batch_size: 1
+  tokenizer_max_length: 77
+
+lora:
+  rank: 8
+  alpha: 8
+  dropout: 0.0
+  init_std: 0.01
+  train_bias: false
+
+training:
+  learning_rate: 1.0e-4
+  weight_decay: 0.0
+  betas: [0.9, 0.999]
+  eps: 1.0e-8
+  max_grad_norm: 1.0
+  max_steps: 1000
+  log_interval: 5
+  save_interval: 100
+  device: cuda
+  seed: 42
+
+runtime:
+  output_dir: outputs/google_dreambooth_dog_lora
+  mixed_precision: fp16
+  pin_memory: true
+  drop_last: true
+  seed: 42
+  save_adapter: true
+  save_full_model: false

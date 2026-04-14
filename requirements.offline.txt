@@ -1,0 +1,9 @@
+diffusers==0.30.3
+transformers==4.44.2
+accelerate==0.34.2
+huggingface-hub==0.24.6
+tokenizers==0.19.1
+safetensors==0.4.5
+Pillow==10.4.0
+PyYAML==6.0.2
+numpy==1.26.4

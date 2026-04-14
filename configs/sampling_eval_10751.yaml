@@ -1,0 +1,44 @@
+output_dir: outputs/samples_eval_10751
+
+prompts:
+  - "a photo of sks dog"
+  - "a close-up photo of sks dog"
+  - "a photo of sks dog in the park"
+  - "a photo of a dog"
+
+seeds: [0, 1, 2, 3]
+
+runtime:
+  scheduler: DPMSolverMultistep
+  num_inference_steps: 30
+  guidance_scale: 7.5
+  width: 512
+  height: 512
+  pipeline_dtype: fp16
+  device: cuda
+  negative_prompt: null
+
+models:
+  - label: base
+    kind: base
+    model_root: /public/home/ba25001026/models/stable-diffusion-v1-5
+
+  - label: step100
+    kind: adapter
+    model_root: /public/home/ba25001026/models/stable-diffusion-v1-5
+    checkpoint_path: /public/home/ba25001026/hpc_sd_deployment/outputs/google_dreambooth_dog_k1024_densify_lr1e4/adapter_step_100.pt
+
+  - label: step300
+    kind: adapter
+    model_root: /public/home/ba25001026/models/stable-diffusion-v1-5
+    checkpoint_path: /public/home/ba25001026/hpc_sd_deployment/outputs/google_dreambooth_dog_k1024_densify_lr1e4/adapter_step_300.pt
+
+  - label: step600
+    kind: adapter
+    model_root: /public/home/ba25001026/models/stable-diffusion-v1-5
+    checkpoint_path: /public/home/ba25001026/hpc_sd_deployment/outputs/google_dreambooth_dog_k1024_densify_lr1e4/adapter_step_600.pt
+
+  - label: step1000
+    kind: adapter
+    model_root: /public/home/ba25001026/models/stable-diffusion-v1-5
+    checkpoint_path: /public/home/ba25001026/hpc_sd_deployment/outputs/google_dreambooth_dog_k1024_densify_lr1e4/adapter_step_1000.pt

@@ -1,0 +1,74 @@
+model:
+  model_root: ~/models/stable-diffusion-v1-5
+  target_modules: ["to_q", "to_v"]
+
+data:
+  instance_data_dir: data/google_dreambooth/dog/images
+  instance_prompt: "a photo of sks dog"
+  class_data_dir: null
+  class_prompt: null
+  with_prior_preservation: false
+  prior_loss_weight: 1.0
+  resolution: 512
+  center_crop: true
+  num_workers: 8
+  train_batch_size: 1
+  tokenizer_max_length: 77
+
+adapter:
+  init_num_gaussians: 32
+  init_method: grid_overlap
+  coord_norm: minus_one_to_one
+  covariance_type: cholesky
+  use_amp_scaling: true
+  adapter_scale: 0.1
+  chunk_size: 256
+  execution_mode: cuda_field_train
+  tile_out: 32
+  tile_in: 32
+  sigma_multiplier: 3.0
+  train_bias: false
+  merge_weights: false
+  normalize_gaussian: false
+  compute_dtype: float32
+  eps: 1.0e-5
+  init_amp_scale: 1.0e-7
+  min_cov_diag: 1.0e-4
+
+training:
+  lr_mu: 1.0e-5
+  lr_chol: 1.0e-6
+  lr_amp: 1.0e-5
+  weight_decay: 0.0
+  max_grad_norm: 1.0
+  max_steps: 1000
+  log_interval: 5
+  save_interval: 100
+  device: cuda
+  dtype: float32
+  seed: 42
+
+densify:
+  enabled: false
+  densify_from_step: 50
+  densify_until_step: 600
+  densification_interval: 50
+  prune_interval: 100
+  stats_reset_interval: 200
+  grad_threshold: 5.0e-4
+  amp_threshold: 1.0e-5
+  max_gaussians_per_layer: 1024
+  min_gaussians_per_layer: 256
+  max_new_gaussians_per_step: 2
+  clone_noise_scale: 1.0e-2
+  prune_warmup_steps: 100
+
+runtime:
+  output_dir: outputs/google_dreambooth_dog_nodensify
+  mixed_precision: fp16
+  pin_memory: true
+  drop_last: true
+  seed: 42
+  resume_from_checkpoint: null
+  save_adapter: true
+  save_full_model: true
