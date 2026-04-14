@@ -1,0 +1,8 @@
+{
+  "dataset": "google/dreambooth",
+  "subject_name": "dog",
+  "class_name": "dog",
+  "num_images": 5,
+  "unique_token": "sks",
+  "caption_template": "a photo of {unique_token} {class_name}"
+}

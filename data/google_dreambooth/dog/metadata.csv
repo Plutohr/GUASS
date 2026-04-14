@@ -1,0 +1,6 @@
+image_path,prompt,subject_name,class_name,width,height,source_url,source_size_bytes
+data/google_dreambooth/dog/images/00.jpg,a photo of sks dog,dog,dog,780,780,https://huggingface.co/datasets/google/dreambooth/resolve/main/dataset/dog/00.jpg,97313
+data/google_dreambooth/dog/images/01.jpg,a photo of sks dog,dog,dog,781,781,https://huggingface.co/datasets/google/dreambooth/resolve/main/dataset/dog/01.jpg,94368
+data/google_dreambooth/dog/images/02.jpg,a photo of sks dog,dog,dog,780,780,https://huggingface.co/datasets/google/dreambooth/resolve/main/dataset/dog/02.jpg,97739
+data/google_dreambooth/dog/images/03.jpg,a photo of sks dog,dog,dog,780,780,https://huggingface.co/datasets/google/dreambooth/resolve/main/dataset/dog/03.jpg,91879
+data/google_dreambooth/dog/images/04.jpg,a photo of sks dog,dog,dog,687,687,https://huggingface.co/datasets/google/dreambooth/resolve/main/dataset/dog/04.jpg,76883
