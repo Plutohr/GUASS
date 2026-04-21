@@ -5,6 +5,8 @@ from torch import nn
 from gaussian_peft.layers.gaussian_linear import GaussianLinear
 
 STABLE_DIFFUSION_UNET_TARGET_MODULES = ["to_q", "to_v"]
+ALL_LINEAR_MODULE_TOKEN = "__all_linear__"
+ALL_LINEAR_MODULE_ALIASES = {ALL_LINEAR_MODULE_TOKEN, "all_linear"}
 
 
 def stable_diffusion_target_modules() -> list[str]:
@@ -17,12 +19,17 @@ def normalize_target_modules(target_modules: list[str] | None) -> list[str]:
 
     normalized: list[str] = []
     for name in target_modules:
-        normalized.append("to_out.0" if name == "to_out" else name)
+        if name in ALL_LINEAR_MODULE_ALIASES:
+            normalized.append(ALL_LINEAR_MODULE_TOKEN)
+        else:
+            normalized.append("to_out.0" if name == "to_out" else name)
     return normalized
 
 
 def is_target_module(module_name: str, target_modules: list[str]) -> bool:
     normalized = normalize_target_modules(target_modules)
+    if ALL_LINEAR_MODULE_TOKEN in normalized:
+        return True
     return any(module_name.endswith(target) for target in normalized)
 
 

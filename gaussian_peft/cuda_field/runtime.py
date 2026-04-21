@@ -203,6 +203,50 @@ class GaussianFieldCudaTrainFunction(torch.autograd.Function):
         )
 
 
+class CellAverageDiagV1CudaFunction(torch.autograd.Function):
+    """Custom CUDA backend for dense cell-average V1 readout."""
+
+    @staticmethod
+    def forward(
+        ctx,
+        mu_raw: Tensor,
+        chol_raw: Tensor,
+        amp: Tensor,
+        out_features: int,
+        in_features: int,
+        sigma_min: float,
+    ) -> Tensor:
+        ext = load_extension(verbose=False)
+        delta = ext.cell_average_diag_v1_forward(
+            mu_raw,
+            chol_raw,
+            amp,
+            out_features,
+            in_features,
+            sigma_min,
+        )
+        ctx.save_for_backward(mu_raw, chol_raw, amp)
+        ctx.out_features = out_features
+        ctx.in_features = in_features
+        ctx.sigma_min = sigma_min
+        return delta
+
+    @staticmethod
+    def backward(ctx, grad_delta: Tensor):
+        ext = load_extension(verbose=False)
+        mu_raw, chol_raw, amp = ctx.saved_tensors
+        d_mu_raw, d_chol_raw, d_amp = ext.cell_average_diag_v1_backward(
+            grad_delta.contiguous(),
+            mu_raw,
+            chol_raw,
+            amp,
+            ctx.out_features,
+            ctx.in_features,
+            ctx.sigma_min,
+        )
+        return d_mu_raw, d_chol_raw, d_amp, None, None, None
+
+
 def gaussian_field_forward_reference(
     *,
     row_coords: Tensor,
@@ -294,6 +338,25 @@ def gaussian_field_train(
         sigma_multiplier,
         normalize,
         clamp_quad,
+    )
+
+
+def gaussian_field_cell_average_diag_v1_cuda(
+    *,
+    mu_raw: Tensor,
+    chol_raw: Tensor,
+    amp: Tensor,
+    out_features: int,
+    in_features: int,
+    sigma_min: float,
+) -> Tensor:
+    return CellAverageDiagV1CudaFunction.apply(
+        mu_raw,
+        chol_raw,
+        amp,
+        out_features,
+        in_features,
+        sigma_min,
     )
 
 

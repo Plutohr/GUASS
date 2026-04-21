@@ -84,6 +84,10 @@ class DiffusionExperimentConfig:
         self.training.validate()
         self.densify.validate()
         self.runtime.validate()
+        if self.adapter.uses_cell_average_v1() and self.densify.enabled:
+            raise ValueError(
+                "readout_scheme='cell_average_diag_v1' requires densify.enabled=false in V1."
+            )
 
     @property
     def output_dir(self) -> Path:

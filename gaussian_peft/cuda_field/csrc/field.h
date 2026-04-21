@@ -151,6 +151,23 @@ std::vector<torch::Tensor> gaussian_field_backward_train(
     const SavedTensorBundle& saved,
     const ForwardConfig& config);
 
+torch::Tensor cell_average_diag_v1_forward(
+    const torch::Tensor& mu_raw,
+    const torch::Tensor& chol_raw,
+    const torch::Tensor& amp,
+    int64_t out_features,
+    int64_t in_features,
+    double sigma_min);
+
+std::vector<torch::Tensor> cell_average_diag_v1_backward(
+    const torch::Tensor& grad_delta,
+    const torch::Tensor& mu_raw,
+    const torch::Tensor& chol_raw,
+    const torch::Tensor& amp,
+    int64_t out_features,
+    int64_t in_features,
+    double sigma_min);
+
 // Validation-only helpers.
 void validate_forward_inputs(
     const torch::Tensor& row_coords,

@@ -46,6 +46,7 @@ class BaseTrainer(ABC):
         self.densify_scheduler = densify_scheduler
         self.last_structure_events = {"clone": 0, "prune": 0}
         self.last_densify_flags = {"clone": False, "prune": False}
+        self.last_grad_clip_metrics: dict[str, float] = {}
         self.model.to(self.device)
 
     @abstractmethod
@@ -62,6 +63,7 @@ class BaseTrainer(ABC):
 
     def step_optimizer(self) -> None:
         self.optimizer.step()
+        self._enforce_adapter_parameter_constraints()
         if self.scheduler is not None:
             self.scheduler.step()
 
@@ -90,6 +92,10 @@ class BaseTrainer(ABC):
         return self.collect_metrics(loss, grad_norm=grad_norm)
 
     def clip_gradients(self) -> float | None:
+        self.last_grad_clip_metrics = {}
+        if self.training_config.uses_per_group_grad_clipping():
+            return self._clip_gradients_by_optimizer_group()
+
         max_grad_norm = self.training_config.max_grad_norm
         if max_grad_norm is None:
             return None
@@ -99,6 +105,29 @@ class BaseTrainer(ABC):
         grad_norm = torch.nn.utils.clip_grad_norm_(params, max_norm=max_grad_norm)
         return float(grad_norm.detach().float().item())
 
+    def _clip_gradients_by_optimizer_group(self) -> float | None:
+        max_observed_grad_norm: float | None = None
+        for group in self.optimizer.param_groups:
+            group_name = str(group.get("name", "unnamed"))
+            max_grad_norm = self.training_config.resolve_max_grad_norm(group_name)
+            if max_grad_norm is None:
+                continue
+            params = [
+                param
+                for param in group["params"]
+                if isinstance(param, nn.Parameter) and param.requires_grad and param.grad is not None
+            ]
+            if not params:
+                continue
+            grad_norm = torch.nn.utils.clip_grad_norm_(params, max_norm=max_grad_norm)
+            grad_norm_value = float(grad_norm.detach().float().item())
+            self.last_grad_clip_metrics[f"grad_norm_{group_name}"] = grad_norm_value
+            if max_observed_grad_norm is None:
+                max_observed_grad_norm = grad_norm_value
+            else:
+                max_observed_grad_norm = max(max_observed_grad_norm, grad_norm_value)
+        return max_observed_grad_norm
+
     def collect_metrics(self, loss: Tensor, grad_norm: float | None = None) -> dict[str, float]:
         metrics: dict[str, float] = {
             "loss": float(loss.detach().item()),
@@ -106,6 +135,7 @@ class BaseTrainer(ABC):
         }
         if grad_norm is not None:
             metrics["grad_norm"] = grad_norm
+        metrics.update(self.last_grad_clip_metrics)
         metrics["total_gaussians"] = float(sum(collect_gaussian_layer_counts(self.model).values()))
         metrics.update(collect_gaussian_diagnostics(self.model))
         peak_memory = get_peak_memory_mb(self.device)
@@ -234,6 +264,11 @@ class BaseTrainer(ABC):
             extra_state=extra_state,
         )
         return str(path)
+
+    def _enforce_adapter_parameter_constraints(self) -> None:
+        for module in self.model.modules():
+            if isinstance(module, GaussianLinear):
+                module.enforce_parameter_constraints_()
 
     def fit(
         self,

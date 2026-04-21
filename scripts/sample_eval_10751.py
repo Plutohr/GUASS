@@ -29,12 +29,16 @@ from diffusers import (
     UNet2DConditionModel,
 )
 from PIL import Image
-from transformers import CLIPTextModel, CLIPTokenizer
+from transformers import CLIPTextModel
 
-from gaussian_peft.checkpoints.state_dict import load_gaussian_adapter_state_dict
-from gaussian_peft.config.adapter import GaussianAdapterConfig, normalize_execution_mode
+from gaussian_peft.checkpoints.state_dict import (
+    load_gaussian_adapter_state_dict,
+    validate_checkpoint_semantics,
+)
+from gaussian_peft.config.adapter import GaussianAdapterConfig
 from gaussian_peft.config.loader import load_diffusion_config
 from gaussian_peft.patchers.replace_linear import apply_gaussian_peft
+from gaussian_peft.utils.hf_loading import load_local_clip_tokenizer
 from gaussian_peft.utils.precision import get_compute_dtype
 
 
@@ -56,6 +60,11 @@ def parse_args() -> argparse.Namespace:
         "--allow-metadata-rebuild",
         action="store_true",
         help="Rebuild adapter config from checkpoint metadata after normalization when mismatch is found.",
+    )
+    parser.add_argument(
+        "--force-legacy-load",
+        action="store_true",
+        help="Allow loading checkpoints that do not carry explicit checkpoint semantics metadata.",
     )
     return parser.parse_args()
 
@@ -113,6 +122,7 @@ def main() -> None:
             pipeline_dtype=pipeline_dtype,
             device=device,
             allow_metadata_rebuild=args.allow_metadata_rebuild,
+            force_legacy_load=args.force_legacy_load,
         )
         pipe.set_progress_bar_config(disable=True)
 
@@ -207,6 +217,7 @@ def build_pipeline(
     pipeline_dtype: torch.dtype,
     device: torch.device,
     allow_metadata_rebuild: bool,
+    force_legacy_load: bool,
 ) -> tuple[StableDiffusionPipeline, str, str | None]:
     model_root = Path(str(model_spec.get("model_root", train_config.model.model_root))).expanduser().resolve()
     if not model_root.exists():
@@ -227,6 +238,7 @@ def build_pipeline(
             train_config=train_config,
             model_spec=model_spec,
             allow_metadata_rebuild=allow_metadata_rebuild,
+            force_legacy_load=force_legacy_load,
         )
         _patched_model, replaced = apply_gaussian_peft(
             unet,
@@ -264,6 +276,7 @@ def resolve_adapter_load_spec(
     train_config: Any,
     model_spec: dict[str, Any],
     allow_metadata_rebuild: bool,
+    force_legacy_load: bool,
 ) -> tuple[GaussianAdapterConfig, list[str], dict[str, Any]]:
     payload = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
     metadata = payload.get("metadata")
@@ -272,6 +285,11 @@ def resolve_adapter_load_spec(
 
     expected_target_modules = list(model_spec.get("target_modules", train_config.model.target_modules))
     expected_adapter_config = GaussianAdapterConfig(**asdict(train_config.adapter))
+    expected_adapter_config.validate()
+    validate_checkpoint_semantics(
+        metadata,
+        force_legacy_load=force_legacy_load,
+    )
     metadata_target_modules = list(metadata.get("target_modules", []))
     metadata_adapter_raw = metadata.get("adapter_config")
     if not isinstance(metadata_adapter_raw, dict):
@@ -280,6 +298,11 @@ def resolve_adapter_load_spec(
     normalized_metadata_adapter = normalize_adapter_metadata(metadata_adapter_raw)
     metadata_adapter_config = GaussianAdapterConfig(**normalized_metadata_adapter)
     metadata_adapter_config.validate()
+    validate_checkpoint_semantics(
+        metadata,
+        expected_config=metadata_adapter_config,
+        force_legacy_load=force_legacy_load,
+    )
 
     target_modules_match = metadata_target_modules == expected_target_modules
     adapter_match = adapter_configs_match(expected_adapter_config, metadata_adapter_config)
@@ -303,8 +326,6 @@ def normalize_adapter_metadata(raw: dict[str, Any]) -> dict[str, Any]:
     normalized = dict(raw)
     if "compute_dtype" in normalized:
         normalized["compute_dtype"] = get_compute_dtype(str(normalized["compute_dtype"]).replace("torch.", ""))
-    if "execution_mode" in normalized:
-        normalized["execution_mode"] = normalize_execution_mode(str(normalized["execution_mode"]))
     return normalized
 
 
@@ -322,7 +343,7 @@ def load_sd_components_from_local(
     model_root: Path,
     dtype: torch.dtype,
 ) -> tuple[Any, torch.nn.Module, torch.nn.Module, torch.nn.Module, Any]:
-    tokenizer = CLIPTokenizer.from_pretrained(str(model_root / "tokenizer"), local_files_only=True)
+    tokenizer = load_local_clip_tokenizer(model_root)
     text_encoder = CLIPTextModel.from_pretrained(
         str(model_root / "text_encoder"),
         local_files_only=True,

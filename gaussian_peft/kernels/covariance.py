@@ -26,6 +26,24 @@ def activate_cholesky(chol_raw: Tensor, eps: float) -> Tensor:
     return chol
 
 
+def activate_diag_sigma_from_chol_slots(
+    chol_raw: Tensor,
+    *,
+    sigma_min: float,
+) -> tuple[Tensor, Tensor]:
+    raw_11, _raw_21, raw_22 = split_cholesky_raw(chol_raw)
+    sigma_x = F.softplus(raw_11) + sigma_min
+    sigma_y = F.softplus(raw_22) + sigma_min
+    return sigma_x, sigma_y
+
+
+def zero_inactive_chol_slot_(chol_raw: Tensor) -> Tensor:
+    if chol_raw.ndim != 2 or chol_raw.shape[-1] != 3:
+        raise ValueError("chol_raw must have shape [K, 3]")
+    chol_raw[..., 1].zero_()
+    return chol_raw
+
+
 def covariance_from_cholesky(chol: Tensor) -> Tensor:
     if chol.ndim != 3 or chol.shape[-2:] != (2, 2):
         raise ValueError("chol must have shape [K, 2, 2]")

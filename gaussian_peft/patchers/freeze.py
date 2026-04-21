@@ -17,6 +17,7 @@ def freeze_non_gaussian_params(model: nn.Module, train_bias: bool = False) -> No
             module.mu_raw.requires_grad = True
             module.chol_raw.requires_grad = True
             module.amp.requires_grad = True
+            module.enforce_parameter_constraints_()
             module.weight.requires_grad = False
             if module.bias is not None:
                 module.bias.requires_grad = train_bias

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import subprocess
 import sys
 import sysconfig
 from functools import lru_cache
@@ -19,6 +20,7 @@ _PREBUILT_LIB = _ARTIFACTS_ROOT / "lib"
 CUDA_FIELD_SOURCES = (
     _CSRC / "ext.cpp",
     _CSRC / "field_impl.cu",
+    _CSRC / "cell_average_diag_v1.cu",
     _CSRC / "forward.cu",
     _CSRC / "backward.cu",
 )
@@ -83,14 +85,34 @@ def _build_extension(*, verbose: bool):
     from torch.utils.cpp_extension import load
 
     _BUILD.mkdir(parents=True, exist_ok=True)
-    return load(
-        name=CUDA_FIELD_EXTENSION_NAME,
-        sources=get_source_paths(),
-        verbose=verbose,
-        build_directory=str(_BUILD),
-        extra_cflags=["-O2"],
-        extra_cuda_cflags=["-O2"],
-    )
+    try:
+        return load(
+            name=CUDA_FIELD_EXTENSION_NAME,
+            sources=get_source_paths(),
+            verbose=verbose,
+            build_directory=str(_BUILD),
+            extra_cflags=["-O2"],
+            extra_cuda_cflags=["-O2"],
+        )
+    except RuntimeError as exc:
+        if "Ninja is required" not in str(exc):
+            raise
+        if verbose:
+            print(
+                "[cuda_field.loader] Ninja unavailable; falling back to `setup.py build_ext`.",
+                file=sys.stderr,
+            )
+        subprocess.run(
+            [sys.executable, "setup.py", "build_ext"],
+            cwd=str(_ROOT),
+            check=True,
+        )
+        prebuilt = _find_prebuilt_extension()
+        if prebuilt is None:
+            raise RuntimeError(
+                "setup.py build_ext completed but no compatible CUDA extension artifact was found"
+            ) from exc
+        return _load_prebuilt_extension(prebuilt)
 
 
 @lru_cache(maxsize=1)

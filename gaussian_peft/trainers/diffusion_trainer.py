@@ -71,6 +71,7 @@ class DiffusionTrainer(BaseTrainer):
                 self.model,
                 optimizer=self.optimizer,
             )
+        self._apply_group_learning_rates(step=max(self.global_step, 0) + 1)
 
     def compute_loss(self, batch: dict[str, Tensor]) -> Tensor:
         pixel_values = batch["pixel_values"].to(device=self.device, dtype=self.vae.dtype, non_blocking=True)
@@ -127,10 +128,12 @@ class DiffusionTrainer(BaseTrainer):
 
     def collect_metrics(self, loss: Tensor, grad_norm: float | None = None) -> dict[str, float]:
         metrics = super().collect_metrics(loss, grad_norm=grad_norm)
+        metrics.update(self._collect_group_learning_rates())
         metrics["dynamic_grad_threshold"] = self.dynamic_threshold.current_threshold()
         return metrics
 
     def step_optimizer(self) -> None:
+        self._apply_group_learning_rates(step=self.global_step + 1)
         current = self.dynamic_threshold.update_from_layers(self.gaussian_layers)
         self.current_grad_threshold = max(self.config.densify.grad_threshold, current)
         if self.densify_scheduler is not None:
@@ -145,6 +148,31 @@ class DiffusionTrainer(BaseTrainer):
             config=GaussianAdapterConfig(**asdict(self.config.adapter)),
             step=step,
         )
+
+    def _apply_group_learning_rates(self, *, step: int) -> None:
+        self._set_group_learning_rate("gaussian_mu", self.config.training.resolve_lr_mu(step))
+        self._set_group_learning_rate("gaussian_amp", self.config.training.resolve_lr_amp(step))
+        self._set_group_learning_rate("gaussian_cov", self.config.training.resolve_lr_chol(step))
+
+    def _set_group_learning_rate(self, group_name: str, lr: float) -> None:
+        for group in self.optimizer.param_groups:
+            if group.get("name") == group_name:
+                group["lr"] = lr
+                return
+
+    def _collect_group_learning_rates(self) -> dict[str, float]:
+        learning_rates: dict[str, float] = {}
+        for group in self.optimizer.param_groups:
+            name = group.get("name")
+            if name == "gaussian_amp":
+                learning_rates["lr_amp"] = float(group["lr"])
+            elif name == "gaussian_mu":
+                learning_rates["lr_mu"] = float(group["lr"])
+            elif name == "gaussian_cov":
+                learning_rates["lr_chol"] = float(group["lr"])
+            elif name == "gaussian_other":
+                learning_rates["lr_other"] = float(group["lr"])
+        return learning_rates
 
 
 def _freeze_module(module: nn.Module) -> None:

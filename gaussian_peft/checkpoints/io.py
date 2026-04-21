@@ -10,6 +10,7 @@ from gaussian_peft.checkpoints.state_dict import (
     export_adapter_metadata,
     gaussian_adapter_state_dict,
     load_gaussian_adapter_state_dict,
+    validate_checkpoint_semantics,
 )
 from gaussian_peft.config.adapter import GaussianAdapterConfig
 from gaussian_peft.layers.gaussian_linear import GaussianLinear
@@ -22,6 +23,7 @@ def save_adapter_checkpoint(
     config: GaussianAdapterConfig,
     step: int | None = None,
 ) -> None:
+    config.validate()
     payload = {
         "format": "gaussian-peft-adapter",
         "step": step,
@@ -32,8 +34,21 @@ def save_adapter_checkpoint(
     torch.save(payload, path)
 
 
-def load_adapter_checkpoint(path: str, model: nn.Module) -> dict[str, Any]:
+def load_adapter_checkpoint(
+    path: str,
+    model: nn.Module,
+    *,
+    force_legacy_load: bool = False,
+) -> dict[str, Any]:
     payload = torch.load(path, map_location="cpu", weights_only=False)
+    metadata = payload.get("metadata")
+    if not isinstance(metadata, dict):
+        raise ValueError(f"Adapter checkpoint missing metadata: {path}")
+    validate_checkpoint_semantics(
+        metadata,
+        expected_config=_infer_model_adapter_config(model),
+        force_legacy_load=force_legacy_load,
+    )
     adapters = payload.get("adapters", {})
     load_gaussian_adapter_state_dict(model, adapters)
     return payload
@@ -130,3 +145,10 @@ def _sync_optimizer_parameter_references(
         for index, param in enumerate(params):
             if param in replacement_map:
                 params[index] = replacement_map[param]
+
+
+def _infer_model_adapter_config(model: nn.Module) -> GaussianAdapterConfig | None:
+    for module in model.modules():
+        if isinstance(module, GaussianLinear):
+            return module.get_adapter_config()
+    return None

@@ -10,6 +10,8 @@ env/
 
 # Local environment and editor files
 .env
+.cache/
+.artifacts/
 .DS_Store
 
 # Training artifacts
@@ -36,6 +38,8 @@ offline_packages/
 
 # Local datasets
 data/
+!gaussian_peft/data/
+!gaussian_peft/data/*.py
 
 # Windows metadata files
 *.Zone.Identifier

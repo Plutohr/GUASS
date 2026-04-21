@@ -26,6 +26,7 @@ from gaussian_peft.config.loader import load_diffusion_config
 from gaussian_peft.data.dreambooth import DreamBoothExampleDataset, dreambooth_collate_fn
 from gaussian_peft.patchers.replace_linear import apply_gaussian_peft
 from gaussian_peft.trainers.diffusion_trainer import DiffusionTrainer
+from gaussian_peft.utils.hf_loading import load_local_clip_tokenizer
 from gaussian_peft.utils.logging import format_train_log
 from gaussian_peft.utils.training_artifacts import TrainingArtifactWriter
 
@@ -170,11 +171,11 @@ def load_sd_components_from_local(
 ) -> tuple[Any, torch.nn.Module, torch.nn.Module, torch.nn.Module, Any]:
     try:
         from diffusers import AutoencoderKL, DDPMScheduler, UNet2DConditionModel
-        from transformers import CLIPTextModel, CLIPTokenizer
+        from transformers import CLIPTextModel
     except ImportError as exc:
         raise RuntimeError("diffusers / transformers are required in the HPC environment.") from exc
 
-    tokenizer = CLIPTokenizer.from_pretrained(str(model_root / "tokenizer"), local_files_only=True)
+    tokenizer = load_local_clip_tokenizer(model_root)
     text_encoder = CLIPTextModel.from_pretrained(
         str(model_root / "text_encoder"),
         local_files_only=True,

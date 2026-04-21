@@ -69,6 +69,10 @@ class GaussianStatsTracker:
         for module_name, module in model.named_modules():
             if not all(hasattr(module, name) for name in ("mu_raw", "chol_raw", "amp")):
                 continue
+            chol_grad = module.chol_raw.grad
+            project_chol = getattr(module, "project_effective_chol_tensor", None)
+            if callable(project_chol):
+                chol_grad = project_chol(chol_grad)
             self.ensure_layer(
                 module_name,
                 int(module.mu_raw.shape[0]),
@@ -78,7 +82,7 @@ class GaussianStatsTracker:
             self.update_from_layer_grads(
                 module_name,
                 mu_grad=module.mu_raw.grad,
-                chol_grad=module.chol_raw.grad,
+                chol_grad=chol_grad,
                 amp_grad=module.amp.grad,
                 amp_value=module.amp.detach(),
             )

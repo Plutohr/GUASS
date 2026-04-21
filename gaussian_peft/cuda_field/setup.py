@@ -40,6 +40,7 @@ setup(
             sources=[
                 str(CSRC / "ext.cpp"),
                 str(CSRC / "field_impl.cu"),
+                str(CSRC / "cell_average_diag_v1.cu"),
                 str(CSRC / "forward.cu"),
                 str(CSRC / "backward.cu"),
             ],
